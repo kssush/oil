@@ -47,9 +47,9 @@ const Header = () => {
                     <Link to='/report'>Отчет</Link>
                 </>
             )}
-            <a onClick={handleLogout}>
+            <Link to='/login' onClick={handleLogout}>
                 Выход
-            </a>
+            </Link>
         </header>
     )
 };

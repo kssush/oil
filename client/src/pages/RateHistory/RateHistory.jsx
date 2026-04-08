@@ -67,7 +67,7 @@ const RateHistory = () => {
                                 <td className={st.valOut}>{parseFloat(item.res_sell).toFixed(4)}</td>
                             </tr>
                         ))}
-                        {history?.length == 0 && <p>Курс еще не добавлен!</p>}
+                        {history?.length === 0 && <p>Курс еще не добавлен!</p>}
                     </tbody>
                 </table>
             )}

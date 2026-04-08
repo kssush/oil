@@ -43,21 +43,21 @@ const Exchange = () => {
         }
     };
 
-    useEffect(() => {
-       const fetchCurrencies = async () => {
-            try {
-                setLoading(true);
-                const result = await api.get('/currencies'); 
-            } catch (err) {
-                const errorText = err.response?.data?.error || "Ошибка соединения";
-                setMessage({ type: 'error', text: errorText });
-            } finally {
-                setLoading(false);
-            }
-        };
+    // useEffect(() => {
+    //    const fetchCurrencies = async () => {
+    //         try {
+    //             setLoading(true);
+    //             const result = await api.get('/currencies'); 
+    //         } catch (err) {
+    //             const errorText = err.response?.data?.error || "Ошибка соединения";
+    //             setMessage({ type: 'error', text: errorText });
+    //         } finally {
+    //             setLoading(false);
+    //         }
+    //     };
 
-        fetchCurrencies();
-    }, [])
+    //     fetchCurrencies();
+    // }, [])
 
     return (
         <div className={st.excahnge}>
