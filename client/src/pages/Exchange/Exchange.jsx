@@ -48,8 +48,6 @@ const Exchange = () => {
             try {
                 setLoading(true);
                 const result = await api.get('/currencies'); 
-
-                setCurrencies(result.data); 
             } catch (err) {
                 const errorText = err.response?.data?.error || "Ошибка соединения";
                 setMessage({ type: 'error', text: errorText });
