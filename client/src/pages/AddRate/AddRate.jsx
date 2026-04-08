@@ -4,7 +4,9 @@ import api from '../../api';
 import Input from '../../components/Input/Input';
 import Button from '../../components/button/Button';
 
-const AddRate = ({ userId = 1}) => {
+const AddRate = () => {
+    const userId = localStorage.getItem("userId");
+
     const [formData, setFormData] = useState({
         currencyCode: '',
         buyPrice: '',

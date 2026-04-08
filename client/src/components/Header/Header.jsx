@@ -1,5 +1,4 @@
 import React from "react";
-import st from "./Header.module.scss";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import api from "../../api";
@@ -35,20 +34,20 @@ const Header = () => {
         <header>
             <Link to='/'>Домашняя</Link>
             <Link to='/historyRate'>История валют</Link>
-            {role != 'admin' && (
+            {role !== 'admin' && (
                 <>
                     <Link to='/exchange'>Обмен</Link>
                     <Link to='/action'>Действия</Link>
                 </>
             )}
             
-            {role == 'admin' && (
+            {role === 'admin' && (
                 <>
                     <Link to='/addRate'>Добавить курс</Link>
                     <Link to='/report'>Отчет</Link>
                 </>
             )}
-            <a href="#" onClick={handleLogout}>
+            <a onClick={handleLogout}>
                 Выход
             </a>
         </header>

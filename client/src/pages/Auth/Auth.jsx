@@ -1,5 +1,3 @@
-import React from "react";
-import st from "./Auth.module.scss";
 import Input from "../../components/Input/Input";
 import Button from "../../components/button/Button";
 

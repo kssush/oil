@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from "react";
 import st from "./Exchange.module.scss";
-import { useNavigate, useParams } from "react-router-dom";
 import api from '../../api'; 
 import Button from "../../components/button/Button";
 import Input from "../../components/Input/Input";
 
-const Exchange = ({userId = 2}) => {
-    const navigate = useNavigate();
+const Exchange = () => {
+    const userId = localStorage.getItem("userId");
 
     const [formData, setFormData] = useState({
         currencyCode: 'USD',
@@ -16,7 +15,6 @@ const Exchange = ({userId = 2}) => {
     
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState(null);
-    const [currencies, setCurrencies] = useState(null);
 
     const handleSubmit = async (e) => {
         e.preventDefault();

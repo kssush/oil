@@ -5,7 +5,9 @@ import Input from "../../components/Input/Input";
 import Button from "../../components/button/Button";
 import api from '../../api'; 
 
-const UpdateRate = ({userId = 1}) => {
+const UpdateRate = () => {
+    const userId = localStorage.getItem("userId");
+
     const { from } = useParams();
     const navigate = useNavigate();
 

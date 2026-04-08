@@ -1,6 +1,4 @@
-import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Auth from './pages/Auth/Auth';
 import Home from './pages/Home/Home';
 import AddRate from './pages/AddRate/AddRate';
 import Header from './components/Header/Header';

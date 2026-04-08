@@ -2,7 +2,9 @@ import React, { useEffect, useState } from "react";
 import st from "./Actions.module.scss";
 import api from '../../api'; 
 
-const Actions = ({ userId = 2 }) => {
+const Actions = () => {
+    const userId = localStorage.getItem("userId");
+
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState(null);
     const [actions, setActions] = useState([]);
