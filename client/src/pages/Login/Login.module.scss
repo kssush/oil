@@ -1,0 +1,20 @@
+.login {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 80vh;
+    padding: 0 10%;
+
+    form{
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+
+        .boxInput{
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+    }
+}

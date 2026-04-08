@@ -1,0 +1,24 @@
+
+.bi{
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+
+    label{
+        color: #8C8F97;
+        font-size: 14px;
+    }
+
+    input{
+        height: 26px;
+        border: 1px solid #ced4df;
+        border-radius: 7px;
+        padding: 5px 15px;
+        font-size: 15px;
+
+        &::placeholder{
+            color: #8C8F97;
+            font-size: 15   px;
+        }
+    }
+}

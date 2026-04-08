@@ -1,0 +1,56 @@
+.history {
+    padding: 1% 10%;
+
+    .controls {
+        margin-bottom: 20px;
+        select {
+            padding: 5px;
+            cursor: pointer;
+        }
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 40px;
+        margin-top: 10px;
+
+        thead {
+            tr {
+                background-color: #c0c0c0;
+                color: #080A0B;
+            }
+        }
+
+        tbody {
+            tr {
+                background-color: #e0e0e0;
+                color: #080A0B;
+                transition: all 0.3s;
+
+                &:hover {
+                    background-color: #d0d0d0;
+                }
+
+                td {
+                    text-align: left;
+                }
+            }
+        }
+    }
+
+    .dateColumn {
+        color: #303030;
+        font-weight: 500;
+    }
+
+    .valIn {
+        color: #154a6e; 
+        font-weight: 600;
+    }
+
+    .valOut {
+        color: #106a36; 
+        font-weight: 600;
+    }
+}

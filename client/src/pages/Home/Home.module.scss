@@ -1,0 +1,36 @@
+.error{
+    font-size: 12;
+    color: red;
+}
+
+.home{
+    padding: 1% 10%;
+    
+    table{
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 40px;
+        margin-top: 20px;
+
+        thead{
+            tr{
+                background-color: #c0c0c0;
+                color: #080A0B;
+            }
+        }
+
+        tbody{
+            tr{
+                background-color: #e0e0e0;
+                color: #080A0B;
+                transition: all 0.3s;
+                cursor: pointer;
+
+                &:hover{
+                    opacity: 0.7;
+                }
+            }
+        }
+    }
+}
+
