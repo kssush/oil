@@ -5,6 +5,8 @@ import Button from "../../components/button/Button";
 import { useNavigate  } from "react-router-dom";
 
 const Home = () => {
+    const role = localStorage.getItem("userRole");
+
     const [rates, setRates] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -32,7 +34,7 @@ const Home = () => {
     }, []);
 
     const handleClick = (from) => {
-        navigate(`/updateRate/${from}`); 
+        role === 'admin' && navigate(`/updateRate/${from}`); 
     };
 
     if (loading) return <div>Загрузка актуальных курсов...</div>;

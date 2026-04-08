@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import st from "./Exchange.module.scss";
 import api from '../../api'; 
 import Button from "../../components/button/Button";
