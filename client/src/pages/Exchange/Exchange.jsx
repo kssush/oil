@@ -43,6 +43,7 @@ const Exchange = () => {
         }
     };
 
+    
     // useEffect(() => {
     //    const fetchCurrencies = async () => {
     //         try {
