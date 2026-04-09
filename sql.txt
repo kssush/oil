@@ -1,0 +1,433 @@
+-- Создание схемы бд
+
+CREATE TABLE users (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    role TEXT NOT NULL,
+    full_name TEXT NOT NULL,
+    login TEXT NOT NULL UNIQUE,  
+    password TEXT NOT NULL,
+    last_login_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    
+    CONSTRAINT check_role CHECK (role IN ('admin', 'operator'))
+);
+
+CREATE TABLE currencies (
+    code CHAR(3) PRIMARY KEY, 
+    name TEXT NOT NULL
+);
+
+CREATE TABLE exchange_rates (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    currency_code CHAR(3) NOT NULL REFERENCES currencies(code) ON DELETE RESTRICT,
+    buy_price DECIMAL(20,8) NOT NULL,  
+    sell_price DECIMAL(20,8) NOT NULL, 
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE exchanges (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    from_currency CHAR(3) NOT NULL REFERENCES currencies(code),
+    to_currency CHAR(3) NOT NULL REFERENCES currencies(code),
+    applied_rate DECIMAL(20,8) NOT NULL,
+    from_amount DECIMAL(20,8) NOT NULL,
+    to_amount DECIMAL(20,8) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE audit_logs (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    action TEXT NOT NULL,
+    details TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    
+    CONSTRAINT check_action CHECK (action IN ('login', 'logout', 'exchange', 'update_rate', 'create_rate'))
+);
+
+
+-- сидинг
+
+INSERT INTO users (role, full_name, login, password)
+VALUES  ('admin', 'Admin ADminov ADminovich', 'admin', 'admin'),
+('operator', 'Operator1 Operatorov11', 'operator1', 'operator1'),
+('operator', 'Operator2 Operatorov22', 'operator2', 'operator2');
+
+INSERT INTO currencies (code, name) VALUES 
+('RUB', 'Российский рубль'),
+('USD', 'Доллар США'),
+('EUR', 'Евро'),
+('BYN', 'Белорусский рубль'),
+('CNY', 'Китайский юань'),
+('GBP', 'Фунт стерлингов')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO currencies (code, name) VALUES 
+('GEL', 'Грузинский лари'),
+('AMD', 'Армянский драм'),
+('UZS', 'Узбекский сум'),
+('KGS', 'Киргизский сом'),
+('CHF', 'Швейцарский франк'),
+('JPY', 'Японская иена'),
+('THB', 'Тайский бат'),
+('PLN', 'Польский злотый'),
+('ILS', 'Израильский шекель'),
+('RSD', 'Сербский динар')
+ON CONFLICT (code) DO NOTHING;
+
+
+-- хранимые процедуры и функции
+
+-- добавление нового курса 
+CREATE OR REPLACE PROCEDURE add_new_rate(
+	p_user_id BIGINT,
+	p_currency_code CHAR(3),
+	p_buy DECIMAL(20,8),
+	p_sell DECIMAL(20,8)
+) LANGUAGE plpgsql
+AS $$
+BEGIN
+	IF p_buy <= 0 OR p_sell <= 0 THEN
+		RAISE EXCEPTION 'Курс не может быть меньше или равен 0!';
+	END IF;
+
+	IF NOT EXISTS (SELECT 1 FROM currencies WHERE code = p_currency_code) THEN
+        RAISE EXCEPTION 'Валюта % отсутствует в справочнике! Сначала добавьте её в список валют.', p_currency_code;
+    END IF;
+
+	IF EXISTS (
+        SELECT 1 FROM exchange_rates 
+        WHERE currency_code = p_currency_code 
+    ) THEN
+        RAISE EXCEPTION 'Курс % уже существует. Используйте функцию обновления!', p_currency_code;
+    END IF;
+	
+	INSERT INTO exchange_rates (currency_code, buy_price, sell_price)
+	VALUES (p_currency_code, p_buy, p_sell);
+
+	INSERT INTO audit_logs (user_id, action, details)
+	VALUES (
+		p_user_id, 
+		'create_rate', 
+		'Админ добавил курс ' || p_currency_code || ': ' || p_buy || '/' || p_sell
+	);
+END;
+$$;
+
+
+
+-- изменнеие курса валют 
+CREATE OR REPLACE PROCEDURE update_rate(
+	p_user_id BIGINT,
+	p_currency_code CHAR(3),
+	p_buy DECIMAL(20,8) DEFAULT NULL,
+	p_sell DECIMAL(20,8) DEFAULT NULL
+) LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_old_buy DECIMAL(20,8);
+    v_old_sell DECIMAL(20,8);
+    v_new_buy DECIMAL(20,8);
+    v_new_sell DECIMAL(20,8);
+BEGIN
+	IF p_buy IS NULL AND p_sell IS NULL THEN
+        RAISE EXCEPTION 'Не передано ни одного значения для обновления (buy и sell = NULL)';
+    END IF;
+
+	SELECT buy_price, sell_price INTO v_old_buy, v_old_sell
+	FROM exchange_rates
+	WHERE currency_code = p_currency_code
+	ORDER BY created_at DESC 
+	LIMIT 1;
+
+	IF v_old_buy IS NULL THEN
+        v_new_buy := p_buy;
+        v_new_sell := p_sell;
+
+		IF v_new_buy IS NULL OR v_new_sell IS NULL THEN
+			RAISE EXCEPTION 'Для создания ПЕРВОГО курса нужно передать оба значения (buy и sell)';
+		END IF;
+	ELSE
+		v_new_buy := COALESCE(p_buy, v_old_buy);
+    	v_new_sell := COALESCE(p_sell, v_old_sell);
+    END IF;
+
+	IF v_new_buy <= 0 OR v_new_sell <= 0 THEN
+        RAISE EXCEPTION 'Курс не может быть меньше или равен 0!';
+    END IF;
+
+	INSERT INTO exchange_rates (currency_code, buy_price, sell_price)
+    VALUES (p_currency_code, v_new_buy, v_new_sell);
+	
+	INSERT INTO audit_logs (user_id, action, details)
+	VALUES (
+		p_user_id, 
+		'update_rate', 
+		format('Админ изменил курс %s: buy %s→%s, sell %s→%s',
+            p_currency_code, 
+            COALESCE(v_old_buy, 0), v_new_buy,
+            COALESCE(v_old_buy, 0), v_new_sell
+        )
+	);
+	END;
+$$;
+
+
+
+
+--обмен
+CREATE OR REPLACE PROCEDURE set_exchange(
+	p_user_id BIGINT,
+	p_from_currency CHAR(3),
+	p_to_currency CHAR(3),
+	p_from_amount DECIMAL(20,8)
+)LANGUAGE plpgsql
+AS $$
+DECLARE
+	v_rate_from DECIMAL(20,8); -- пкупаем
+	v_rate_to DECIMAL(20,8); -- продаем
+    v_to_amount DECIMAL(20,8);
+    v_final_rate DECIMAL(20,8);
+BEGIN
+	--надо курс для требуемой валюты скок руб мы купим  за 1 единицу
+	IF p_from_currency = 'RUB' THEN 
+        v_rate_from := 1;
+    ELSE
+        SELECT buy_price INTO v_rate_from 
+        FROM exchange_rates 
+        WHERE currency_code = p_from_currency 
+        ORDER BY created_at DESC LIMIT 1;
+    END IF;
+
+
+	--надр курс для исходящей валюты (за сколько рублей мы продадим 1 единицу)
+    IF p_to_currency = 'RUB' THEN 
+        v_rate_to := 1;
+    ELSE
+        SELECT sell_price INTO v_rate_to 
+        FROM exchange_rates 
+        WHERE currency_code = p_to_currency 
+        ORDER BY created_at DESC LIMIT 1;
+    END IF;
+
+	IF v_rate_from IS NULL OR v_rate_to IS NULL THEN
+        RAISE EXCEPTION 'Курс покупки для валюты % не найден', p_from_currency;
+    END IF;
+
+	IF v_rate_to IS NULL THEN
+        RAISE EXCEPTION 'Курс продажи для валюты % не найден', p_to_currency;
+    END IF;
+
+	IF p_from_amount <= 0 THEN
+        RAISE EXCEPTION 'Сумма должна быть больше нуля';
+    END IF;
+	
+	v_to_amount := (p_from_amount * v_rate_from) / v_rate_to;
+	v_final_rate := v_rate_from / v_rate_to;
+
+	INSERT INTO exchanges (user_id, from_currency, to_currency, applied_rate, from_amount, to_amount)
+    VALUES (p_user_id, p_from_currency, p_to_currency, v_final_rate, p_from_amount, v_to_amount);
+
+	INSERT INTO audit_logs (user_id, action, details)
+    VALUES (p_user_id, 'exchange', format('Обмен %s %s на %s %s (Курс: %s)', p_from_amount, p_from_currency, v_to_amount, p_to_currency, v_final_rate));
+END;
+$$;
+
+--получение всех кодов
+CREATE OR REPLACE FUNCTION get_currency()
+RETURNS TABLE(
+	code CHAR(3), 
+    name TEXT
+) LANGUAGE plpgsql
+AS $$
+BEGIN
+	RETURN QUERY
+	SELECT * FROM currencies;
+END;
+$$;
+
+
+-- актуальные списки валютц
+CREATE OR REPLACE FUNCTION get_current_rates()
+RETURNS TABLE(
+	currency_code CHAR(3),
+    buy_price DECIMAL(20,8),
+    sell_price DECIMAL(20,8)
+)LANGUAGE plpgsql
+AS $$
+	BEGIN
+		RETURN QUERY
+		
+		SELECT DISTINCT ON (er.currency_code)
+			er.currency_code,
+			er.buy_price, 
+			er.sell_price
+		FROM exchange_rates AS er
+		ORDER BY er.currency_code, er.created_at DESC;
+	END;
+$$;
+
+
+
+
+
+--получение изменений за сессию
+CREATE OR REPLACE FUNCTION action_session(
+	p_user_id BIGINT
+) 
+RETURNS TABLE(
+    from_curr CHAR(3),
+    to_curr CHAR(3),
+	amount_in DECIMAL(20,8),
+    amount_out DECIMAL(20,8),
+    op_time TIMESTAMPTZ
+) LANGUAGE plpgsql
+AS $$
+DECLARE
+	v_login_time TIMESTAMPTZ;
+BEGIN 
+	SELECT last_login_at INTO v_login_time 
+    FROM users 
+    WHERE id = p_user_id;
+
+	RETURN QUERY
+    SELECT 
+        ex.from_currency, 
+        ex.to_currency, 
+        ex.from_amount, 
+        ex.to_amount, 
+        ex.created_at
+    FROM exchanges ex
+    WHERE ex.user_id = p_user_id 
+      AND ex.created_at >= v_login_time
+    ORDER BY ex.created_at DESC;
+END;
+$$;
+
+
+
+
+
+
+--история изменения валюты
+CREATE OR REPLACE FUNCTION get_select_rates(
+	p_currency_code CHAR(3)
+)
+RETURNS TABLE(
+    res_buy DECIMAL(20,8),
+    res_sell DECIMAL(20,8),
+	res_created TIMESTAMPTZ
+) LANGUAGE plpgsql
+AS $$
+	BEGIN
+		IF p_currency_code IS NULL THEN
+	        RAISE EXCEPTION 'Необходимо указать валюту!';
+	    END IF;
+
+		RETURN QUERY
+		SELECT buy_price, sell_price, created_at
+		FROM exchange_rates AS er
+		WHERE p_currency_code = er.currency_code
+		ORDER BY created_at DESC;
+	END;
+$$;
+SELECT * FROM get_select_rates('USD');
+DROP FUNCTION IF EXISTS get_select_rates(CHAR(3));
+
+
+
+
+CREATE OR REPLACE FUNCTION get_admin_report()
+RETURNS TABLE(
+    report_date DATE,
+    currency_from CHAR(3),
+    currency_to CHAR(3),
+    total_from DECIMAL(20,2),
+    total_to DECIMAL(20,2),
+    operations_count BIGINT
+) LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        ex.created_at::date AS report_date, -- время в дату
+        ex.from_currency,
+        ex.to_currency,
+        SUM(ex.from_amount) AS total_from,
+        SUM(ex.to_amount) AS total_to,
+        COUNT(*) AS operations_count
+    FROM exchanges ex
+    GROUP BY report_date, ex.from_currency, ex.to_currency
+    ORDER BY report_date DESC, ex.from_currency;
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE log_in(
+    p_login TEXT,
+    p_password TEXT
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_user_id BIGINT;
+    v_full_name TEXT;
+BEGIN
+    SELECT id, full_name INTO v_user_id, v_full_name
+    FROM users
+    WHERE login = p_login AND password = p_password;
+
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION 'Неверный логин или пароль';
+    END IF;
+
+    UPDATE users 
+    SET last_login_at = now() 
+    WHERE id = v_user_id;
+
+    INSERT INTO audit_logs (user_id, action, details)
+    VALUES (v_user_id, 'login', format('Пользователь %s вошел в систему', v_full_name));
+END;
+$$;
+
+
+
+-- выход
+CREATE OR REPLACE PROCEDURE log_out(
+    p_user_id BIGINT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM users WHERE id = p_user_id) THEN
+        RAISE EXCEPTION 'Пользователь с ID % не найден', p_user_id;
+    END IF;
+
+    INSERT INTO audit_logs (user_id, action, details)
+    VALUES (p_user_id, 'logout', 'выход из системы');
+END;
+$$;
+
+--история изменения валюты
+CREATE OR REPLACE FUNCTION get_select_rates(
+	p_currency_code CHAR(3)
+)
+RETURNS TABLE(
+    res_buy DECIMAL(20,8),
+    res_sell DECIMAL(20,8),
+	res_created TIMESTAMPTZ
+) LANGUAGE plpgsql
+AS $$
+	BEGIN
+		IF p_currency_code IS NULL THEN
+	        RAISE EXCEPTION 'Необходимо указать валюту!';
+	    END IF;
+
+		RETURN QUERY
+		SELECT buy_price, sell_price, created_at
+		FROM exchange_rates AS er
+		WHERE p_currency_code = er.currency_code
+		ORDER BY created_at DESC;
+	END;
+$$;
+SELECT * FROM get_select_rates('USD');
