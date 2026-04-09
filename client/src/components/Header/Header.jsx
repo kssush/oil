@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import api from "../../api";
+import './Header.module.scss';
 
 const Header = () => {
     const navigate = useNavigate();
