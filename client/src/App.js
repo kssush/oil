@@ -10,9 +10,9 @@ import AdminReport from './pages/AdminReport/AdminReport';
 import Login from './pages/Login/Login';
 
 function App() {
-    const user = true;
+    const userId = localStorage.getItem("userId");
 
-    if(!user) return(
+    if(!userId) return(
         <BrowserRouter>
             <Routes>
                 <Route path="/login" element={<Login />} />
