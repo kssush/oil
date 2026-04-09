@@ -12,11 +12,18 @@ import Login from './pages/Login/Login';
 function App() {
     const user = true;
 
-    if(!user) return <div>error</div>
+    if(!user) return(
+        <BrowserRouter>
+            <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="*" element={<Login />} />
+            </Routes>
+        </BrowserRouter>
+    )
 
     return(
         <BrowserRouter>
-            <Header isAdmin={true}/>
+            <Header/>
             <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/exchange" element={<Exchange />} />
