@@ -14,6 +14,7 @@ function App() {
 
     if(!userId) return(
         <BrowserRouter>
+            <Header/>
             <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="*" element={<Login />} />
