@@ -82,7 +82,7 @@
 
 
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import st from "./AdminReport.module.scss";
 import api from '../../api';
 import Button from "../../components/button/Button";
@@ -114,7 +114,7 @@ const AdminReport = () => {
             setLoading(false);
         }
     }, [reportType]); 
-    
+
     useEffect(() => {
         fetchReport();
     }, [fetchReport]);
