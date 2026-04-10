@@ -93,7 +93,7 @@ const AdminReport = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const fetchReport = async () => {
+   const fetchReport = useCallback(async () => {
         try {
             setLoading(true);
             let endpoint = '';
@@ -113,11 +113,11 @@ const AdminReport = () => {
         } finally {
             setLoading(false);
         }
-    };
-
+    }, [reportType]); 
+    
     useEffect(() => {
         fetchReport();
-    }, [reportType]);
+    }, [fetchReport]);
 
     const formatDate = (iso) => {
         const date = new Date(iso);

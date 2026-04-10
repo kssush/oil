@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
 import st from "./Register.module.scss"; 
 import api from "../../api";
 import Button from "../../components/button/Button";
@@ -15,8 +14,6 @@ const Register = () => {
     const [loading, setLoading] = useState(false);
 
     const userId = localStorage.getItem("userId");
-
-    const navigate = useNavigate();
 
     const handleChange = (e) => {
         const { id, value } = e.target;

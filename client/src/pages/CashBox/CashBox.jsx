@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import st from "./CashBox.module.scss";
 import api from '../../api';
 import Button from "../../components/button/Button";
@@ -12,23 +12,25 @@ const CashBox = () => {
 
     const userId = localStorage.getItem("userId");
 
-    const fetchBalances = async () => {
+    const fetchBalances = useCallback(async () => {
         try {
             setLoading(true);
             const res = await api.get('/cashbox');
             setBalances(res.data);
 
-            if (!selectedCurrency && res.data.length > 0) {
-                setSelectedCurrency(res.data[0].currency_code);
+            if (res.data.length > 0) {
+                setSelectedCurrency(prev => prev || res.data[0].currency_code);
             }
         } catch (err) {
             console.error("Ошибка загрузки", err);
         } finally {
             setLoading(false);
         }
-    };
-
-    useEffect(() => { fetchBalances(); }, []);
+    }, []); 
+    
+    useEffect(() => { 
+        fetchBalances(); 
+    }, [fetchBalances])
 
     const currentData = balances.find(b => b.currency_code === selectedCurrency);
 
