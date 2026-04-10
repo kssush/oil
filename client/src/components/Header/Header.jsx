@@ -46,6 +46,9 @@ const Header = () => {
                 <>
                     <Link to='/addRate'>Добавить курс</Link>
                     <Link to='/report'>Отчет</Link>
+                    <Link to='/cashbox'>Касса</Link>
+                    <Link to='/operators'>Операторы</Link>
+                    <Link to='/register'>Регистрация</Link>
                 </>
             )}
             <Link to='/login' onClick={handleLogout}>

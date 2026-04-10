@@ -1,0 +1,79 @@
+.operatorsPage {
+    padding: 2% 10%;
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+
+    .list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .operatorCard {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #eeecec;
+        padding: 15px 20px;
+        border-radius: 4px;
+        transition: 0.2s;
+        border-left: 4px solid #006ca1;
+
+        &.disabled {
+            border-left: 4px solid #7f8c8d;
+            background-color: #f0f0f0;
+            opacity: 0.8;
+        }
+
+        .info {
+            display: flex;
+            flex-direction: column;
+
+            .name {
+                font-weight: 600;
+                font-size: 1.1rem;
+                margin-bottom: 10px;
+            }
+            .login {
+                color: #666;
+                font-size: 0.9rem;
+            }
+            .status {
+                font-size: 0.8rem;
+                font-weight: bold;
+                margin-top: 7px;
+            }
+            .activeText {
+                color: #106a36; 
+            }
+            .inactiveText {
+                color: #c0392b;
+            }
+        }
+    }
+
+    .btnDisable {
+        background-color: #c0392b !important;
+        padding: 6px;
+        border-radius: 10px;
+
+        &:hover {
+            background-color: #a93226 !important;
+        }
+    }
+
+    .btnEnable {
+        background-color: #106a36 !important;
+        padding: 6px;
+        border-radius: 10px;
+
+        &:hover {
+            background-color: #0d542b !important;
+        }
+    }
+}

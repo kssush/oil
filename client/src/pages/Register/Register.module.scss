@@ -1,0 +1,46 @@
+.login {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 80vh;
+    padding: 0 10%;
+
+    form{
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+
+        .boxInput{
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+    }
+
+    .errorText {
+        color: #e74c3c;
+        font-size: 14px;
+        margin-top: 15px;
+        text-align: center;
+        padding: 10px;
+        border-radius: 4px;
+        width: 100%;
+        max-width: 300px;
+    }
+
+    .switchPage {
+        margin-top: 20px;
+        font-size: 14px;
+        color: #666;
+
+        a {
+            color: #154a6e;
+            text-decoration: none;
+            font-weight: bold;
+            &:hover {
+                text-decoration: underline;
+            }
+        }
+    }
+}

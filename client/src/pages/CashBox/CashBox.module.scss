@@ -1,0 +1,49 @@
+.cashBox{
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: '8px';
+    margin: 1% 10%;
+    background-color: #ffffff0e;
+    border-radius: 10px;
+    
+
+    .panel{
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+
+        .row{
+            display: flex;
+            gap: 15px;
+            align-items: center;
+
+            label{
+               color: #CED4DF;
+            }
+        }
+
+        .infoBlock{
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+
+            .stat{
+                display: flex;
+                gap: 10px;
+
+                span, strong, em{
+                    color: #CED4DF;
+                }
+            }
+        }
+
+        .actionRow{
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-width: 240px;
+        }
+    }
+}

@@ -146,4 +146,80 @@ app.post('/api/logout', async (req, res) => {
     }
 });
 
+
+//---
+
+app.post('/api/register', async (req, res) => {
+    const { Regid, fullName, login, password, role } = req.body;
+    try {
+        await db.query('CALL register($1, $2, $3, $4, $5)', [Regid, fullName, login, password, role || 'operator']);
+        res.status(201).json({ success: true, message: 'Оператор зарегистрирован' });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+app.post('/api/userPlug', async (req, res) => {
+    const { adminId, userId, isPlug } = req.body;
+    try {
+        await db.query('CALL on_plug_user($1, $2, $3)', [adminId, userId, isPlug]);
+        res.status(200).json({ success: true, message: isPlug ? 'Оператор подключен' : 'Оператор отключен' });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+app.get('/api/operators', async (req, res) => {
+    try {
+        const result = await db.query(
+            "SELECT id, login, full_name, deleted_at FROM users WHERE role = 'operator' ORDER BY full_name"
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+app.get('/api/cashbox', async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM cashbox ORDER BY currency_code');
+        res.status(200).json(result.rows);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+app.post('/api/issueCash', async (req, res) => {
+    const { adminId, currency, amount } = req.body;
+    try {
+        await db.query('CALL issue_the_amount($1, $2, $3)', [adminId, currency, amount]);
+        res.status(200).json({ success: true, message: 'Касса пополнена' });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+
+app.get('/api/operatorsHistory', async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM report_operators_history()');
+        res.status(200).json(result.rows);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+app.get('/api/operatorsSummary', async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM report_operators_days_history()');
+        res.status(200).json(result.rows);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+
+
+
 app.listen(process.env.PORT, () => console.log(`Сервер запущен на порту ${process.env.PORT}`));

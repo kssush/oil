@@ -8,6 +8,9 @@ import Exchange from './pages/Exchange/Exchange';
 import RateHistory from './pages/RateHistory/RateHistory';
 import AdminReport from './pages/AdminReport/AdminReport';
 import Login from './pages/Login/Login';
+import CashBox from './pages/CashBox/CashBox';
+import Register from './pages/Register/Register';
+import OperatorsList from './pages/OperatorsList/OperatorsList';
 
 function App() {
     const userId = localStorage.getItem("userId");
@@ -33,10 +36,12 @@ function App() {
                 <Route path="/addRate" element={<AddRate />} />
                 <Route path="/updateRate/:from" element={<UpdateRate />} />
                 <Route path="/report" element={<AdminReport />} />
+                <Route path="/cashbox" element={<CashBox />} />
+                <Route path="/operators" element={<OperatorsList />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
             </Routes>
         </BrowserRouter>
-        
     )
 }
 
