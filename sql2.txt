@@ -1,0 +1,283 @@
+ALTER TABLE users ADD COLUMN deleted_at TIMESTAMPTZ; 
+
+ALTER TABLE audit_logs DROP CONSTRAINT check_action
+ALTER TABLE audit_logs ADD CONSTRAINT check_action CHECK (action IN 
+('login', 'logout', 'exchange', 'update_rate', 'create_rate', 'register', 'unplug', 'plug', 'issue_the_amount'))
+
+CREATE TABLE cashbox (
+	currency_code CHAR(3) PRIMARY KEY REFERENCES currencies(code),
+	amount DECIMAL(20,8) NOT NULL DEFAULT 0,
+
+	CONSTRAINT check_amount CHECK (amount >= 0)
+);
+
+-- сидинг всех валют в кассу
+INSERT INTO cashbox (currency_code)
+SELECT code FROM currencies
+ON CONFLICT DO NOTHING;
+
+-- регистрация 
+CREATE OR REPLACE PROCEDURE register (
+    p_user_id BIGINT,
+	p_full_name TEXT,
+	p_login TEXT,
+	p_password TEXT,
+	p_role TEXT DEFAULT 'operator'
+) LANGUAGE plpgsql
+AS $$
+BEGIN
+	IF EXISTS (SELECT 1 FROM users WHERE login = p_login) THEN
+	    RAISE EXCEPTION 'Пользователь с логином % уже существует!', p_login;
+	END IF;
+
+	INSERT INTO users (role, full_name, login, password)
+	VALUES (p_role, p_full_name, p_login, p_password);
+
+	INSERT INTO audit_logs (user_id, action, details)
+    VALUES (p_user_id, 'register', format('Регистрация пользователя: %s', p_login ));
+	
+END
+$$
+
+
+-- логин (доб. мягкое удаление = отключен)
+CREATE OR REPLACE PROCEDURE log_in(
+    p_login TEXT,
+    p_password TEXT
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_user_id BIGINT;
+    v_full_name TEXT;
+	v_deleted_at TIMESTAMPTZ;
+BEGIN
+    SELECT id, full_name, deleted_at INTO v_user_id, v_full_name, v_deleted_at
+    FROM users
+    WHERE login = p_login AND password = p_password;
+
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION 'Неверный логин или пароль!';
+    END IF;
+
+    IF v_deleted_at IS NOT NULL THEN
+		RAISE EXCEPTION 'Вы были отключены от системы!';
+	END IF;
+	
+    UPDATE users 
+    SET last_login_at = now() 
+    WHERE id = v_user_id;
+
+    INSERT INTO audit_logs (user_id, action, details)
+    VALUES (v_user_id, 'login', format('Пользователь %s вошел в систему', v_full_name));
+END;
+$$;
+
+
+-- хп пополнения кассы
+CREATE OR REPLACE PROCEDURE issue_the_amount(
+	p_user_id BIGINT,
+	p_currency CHAR(3),
+	p_amount DECIMAL(20,8)
+) LANGUAGE plpgsql
+AS $$
+DECLARE
+	v_last_deposit TIMESTAMPTZ;
+BEGIN
+	SELECT last_admin_deposit_at INTO v_last_deposit 
+    FROM cashbox 
+    WHERE currency_code = p_currency;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Валюта % не найдена в кассе!', p_currency;
+    END IF;
+
+    IF v_last_deposit::date = CURRENT_DATE THEN
+        RAISE EXCEPTION 'Пополнение для валюты % сегодня уже производилось!', p_currency;
+    END IF;
+
+	IF p_amount <= 0 THEN
+		RAISE EXCEPTION 'Сумма должна быть больше нуля!';
+	END IF;
+
+	UPDATE cashbox
+	SET amount = amount + p_amount, last_admin_deposit_at = now() 
+	WHERE currency_code = p_currency;
+	
+	INSERT INTO audit_logs (user_id, action, details)
+    VALUES (p_user_id, 'issue_the_amount', format('Пополнение кассы: + %s %s', p_amount, p_currency));
+END
+$$
+
+
+
+
+
+
+--обмен (новая)
+CREATE OR REPLACE PROCEDURE set_exchange(
+	p_user_id BIGINT,
+	p_from_currency CHAR(3),
+	p_to_currency CHAR(3),
+	p_from_amount DECIMAL(20,8)
+)LANGUAGE plpgsql
+AS $$
+DECLARE
+	v_rate_from DECIMAL(20,8); -- пкупаем
+	v_rate_to DECIMAL(20,8); -- продаем
+    v_to_amount DECIMAL(20,8);
+    v_final_rate DECIMAL(20,8);
+
+	v_to_remains DECIMAL (20,8); -- остаток для продажи
+	v_max_from DECIMAL(20,8); -- cколк принять
+BEGIN
+	IF (SELECT deleted_at FROM users WHERE id = p_user_id) IS NOT NULL THEN
+	    RAISE EXCEPTION 'Операция отклонена: вы были отключены от системы!' USING ERRCODE = '401';
+	END IF;
+
+	--надо курс для требуемой валюты скок руб мы купим  за 1 единицу
+	IF p_from_currency = 'RUB' THEN 
+        v_rate_from := 1;
+    ELSE
+        SELECT buy_price INTO v_rate_from FROM exchange_rates 
+        WHERE currency_code = p_from_currency ORDER BY created_at DESC LIMIT 1;
+    END IF;
+
+	--надр курс для исходящей валюты (за сколько рублей мы продадим 1 единицу)
+    IF p_to_currency = 'RUB' THEN 
+        v_rate_to := 1;
+    ELSE
+        SELECT sell_price INTO v_rate_to FROM exchange_rates 
+        WHERE currency_code = p_to_currency ORDER BY created_at DESC LIMIT 1;
+    END IF;
+
+	IF v_rate_from IS NULL OR v_rate_to IS NULL THEN
+        RAISE EXCEPTION 'Курс для пары % -> % не найден!', p_from_currency, p_to_currency;
+    END IF;
+
+	IF p_from_amount <= 0 THEN
+        RAISE EXCEPTION 'Сумма должна быть больше нуля!';
+    END IF;
+	
+	v_to_amount := (p_from_amount * v_rate_from) / v_rate_to;
+	v_final_rate := v_rate_from / v_rate_to;
+
+	SELECT amount INTO v_to_remains FROM cashbox WHERE currency_code = p_to_currency;
+	
+	IF v_to_remains - v_to_amount < 0 THEN
+		v_max_from := (v_to_remains * v_rate_to) / v_rate_from;
+		RAISE EXCEPTION 'В кассе недостаточно средств! К обмену можно: % %', ROUND(v_max_from, 2), p_from_currency;
+	END IF;
+
+	UPDATE cashbox SET amount = amount - v_to_amount WHERE currency_code = p_to_currency;
+	UPDATE cashbox SET amount = amount + p_from_amount WHERE currency_code = p_from_currency;
+	
+	INSERT INTO exchanges (user_id, from_currency, to_currency, applied_rate, from_amount, to_amount)
+    VALUES (p_user_id, p_from_currency, p_to_currency, v_final_rate, p_from_amount, v_to_amount);
+
+	INSERT INTO audit_logs (user_id, action, details)
+    VALUES (p_user_id, 'exchange', format('Обмен %s %s на %s %s (Курс: %s)', p_from_amount, p_from_currency, v_to_amount, p_to_currency, v_final_rate));
+END;
+$$;
+
+
+-- история для каждого оператора
+CREATE OR REPLACE FUNCTION report_operators_history()
+RETURNS TABLE(
+    created_at TIMESTAMPTZ,
+    operator_name TEXT,
+    from_currency CHAR(3),
+    to_currency CHAR(3),
+    from_amount DECIMAL(20,2),
+    to_amount DECIMAL(20,2),
+    rate DECIMAL(20,8)
+) LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        ex.created_at,
+        u.full_name,
+        ex.from_currency,
+        ex.to_currency,
+        ex.from_amount,
+        ex.to_amount,
+        ex.applied_rate
+    FROM exchanges ex
+    JOIN users u ON ex.user_id = u.id
+    ORDER BY ex.created_at DESC;
+END;
+$$;
+
+
+
+-- история для каждого оператора сумма
+CREATE OR REPLACE FUNCTION report_operators_days_history()
+RETURNS TABLE(
+    report_date DATE,            
+    operator_name TEXT,
+    from_currency CHAR(3),
+    to_currency CHAR(3),
+    total_from_amount DECIMAL(20,2),
+    total_to_amount DECIMAL(20,2),
+    operations_count BIGINT     
+) LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        ex.created_at::date AS report_date,
+        u.full_name,
+        ex.from_currency,
+        ex.to_currency,
+        SUM(ex.from_amount) AS total_from_amount, 
+        SUM(ex.to_amount) AS total_to_amount,
+        COUNT(ex.id) AS operations_count    
+    FROM exchanges ex
+    JOIN users u ON ex.user_id = u.id
+    GROUP BY ex.created_at::date, u.full_name, ex.from_currency, ex.to_currency     
+    ORDER BY report_date DESC, u.full_name;
+END;
+$$;
+
+-- подключить отключить пользователя
+CREATE OR REPLACE PROCEDURE on_plug_user (
+    p_admin_id BIGINT,
+    p_user_id BIGINT,
+    p_is_plug BOOLEAN
+) LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_deleted_at TIMESTAMPTZ;
+    v_action_text TEXT;
+BEGIN
+    SELECT deleted_at INTO v_deleted_at
+    FROM users
+    WHERE id = p_user_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Пользователя с id: % не существует!', p_user_id;
+    END IF;
+
+    IF p_is_plug = true AND v_deleted_at IS NULL THEN
+        RAISE EXCEPTION 'Оператор уже подключен!';
+    END IF;
+
+    IF p_is_plug = false AND v_deleted_at IS NOT NULL THEN
+        RAISE EXCEPTION 'Оператор уже отключен!';
+    END IF;
+
+    IF p_is_plug = true THEN
+        UPDATE users SET deleted_at = NULL WHERE id = p_user_id;
+        v_action_text := 'plug';
+    ELSE
+        UPDATE users SET deleted_at = now() WHERE id = p_user_id;
+        v_action_text := 'unplug';
+    END IF;
+
+    INSERT INTO audit_logs (user_id, action, details)
+    VALUES (p_admin_id, v_action_text, format('Админ %s пользователя ID %s', CASE WHEN p_is_plug THEN 'подключил' ELSE 'отключил' END, p_user_id));
+END;
+$$;
+
+ALTER TABLE cashbox ADD COLUMN last_admin_deposit_at TIMESTAMPTZ;
